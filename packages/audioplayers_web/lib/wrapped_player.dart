@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:js_interop';
+import 'dart:html';
 
 import 'package:audioplayers_platform_interface/audioplayers_platform_interface.dart';
 import 'package:audioplayers_web/num_extension.dart';
+import 'package:audioplayers_web/web_audio_js.dart';
 import 'package:flutter/services.dart';
-import 'package:web/web.dart' as web;
 
 class WrappedPlayer {
   final String playerId;
@@ -17,8 +17,9 @@ class WrappedPlayer {
   String? _currentUrl;
   bool _isPlaying = false;
 
-  web.HTMLAudioElement? player;
-  web.StereoPannerNode? _stereoPanner;
+  AudioElement? player;
+  StereoPannerNode? _stereoPanner;
+  StreamSubscription? _playerTimeUpdateSubscription;
   StreamSubscription? _playerEndedSubscription;
   StreamSubscription? _playerLoadedDataSubscription;
   StreamSubscription? _playerPlaySubscription;
@@ -61,14 +62,11 @@ class WrappedPlayer {
   }
 
   void recreateNode() {
-    final currentUrl = _currentUrl;
-    if (currentUrl == null) {
+    if (_currentUrl == null) {
       return;
     }
 
-    final p = player = web.HTMLAudioElement();
-    p.preload = 'auto';
-    p.src = currentUrl;
+    final p = player = AudioElement(_currentUrl);
     // As the AudioElement is created dynamically via script,
     // features like 'stereo panning' need the CORS header to be enabled.
     // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
@@ -80,7 +78,7 @@ class WrappedPlayer {
     _setupStreams(p);
 
     // setup stereo panning
-    final audioContext = web.AudioContext();
+    final audioContext = JsAudioContext();
     final source = audioContext.createMediaElementSource(player!);
     _stereoPanner = audioContext.createStereoPanner();
     source.connect(_stereoPanner!);
@@ -90,7 +88,7 @@ class WrappedPlayer {
     p.load();
   }
 
-  void _setupStreams(web.HTMLAudioElement p) {
+  void _setupStreams(AudioElement p) {
     _playerLoadedDataSubscription = p.onLoadedData.listen(
       (_) {
         eventStreamController.add(
@@ -114,6 +112,17 @@ class WrappedPlayer {
           AudioEvent(
             eventType: AudioEventType.duration,
             duration: p.duration.fromSecondsToDuration(),
+          ),
+        );
+      },
+      onError: eventStreamController.addError,
+    );
+    _playerTimeUpdateSubscription = p.onTimeUpdate.listen(
+      (_) {
+        eventStreamController.add(
+          AudioEvent(
+            eventType: AudioEventType.position,
+            position: p.currentTime.fromSecondsToDuration(),
           ),
         );
       },
@@ -143,7 +152,7 @@ class WrappedPlayer {
     _playerErrorSubscription = p.onError.listen(
       (_) {
         String platformMsg;
-        if (p.error != null) {
+        if (p.error is MediaError) {
           platformMsg = 'Failed to set source. For troubleshooting, see '
               'https://github.com/bluefireteam/audioplayers/blob/main/troubleshooting.md';
         } else {
@@ -179,6 +188,8 @@ class WrappedPlayer {
 
     _playerLoadedDataSubscription?.cancel();
     _playerLoadedDataSubscription = null;
+    _playerTimeUpdateSubscription?.cancel();
+    _playerTimeUpdateSubscription = null;
     _playerEndedSubscription?.cancel();
     _playerEndedSubscription = null;
     _playerSeekedSubscription?.cancel();
@@ -198,7 +209,7 @@ class WrappedPlayer {
       recreateNode();
     }
     player?.currentTime = position;
-    await player?.play().toDart;
+    await player?.play();
   }
 
   Future<void> resume() async {
