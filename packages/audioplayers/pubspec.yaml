@@ -25,7 +25,8 @@ dependencies:
   audioplayers_darwin: ^6.0.0
   audioplayers_linux: ^4.0.0
   audioplayers_platform_interface: ^7.0.0
-  audioplayers_web: ^4.1.0
+  audioplayers_web: 
+    path: ../audioplayers_web
   audioplayers_windows: ^4.0.0
   file: '>=6.1.0 <8.0.0'
   flutter:
