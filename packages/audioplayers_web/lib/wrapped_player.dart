@@ -117,17 +117,17 @@ class WrappedPlayer {
       },
       onError: eventStreamController.addError,
     );
-    _playerTimeUpdateSubscription = p.onTimeUpdate.listen(
-      (_) {
-        eventStreamController.add(
-          AudioEvent(
-            eventType: AudioEventType.position,
-            position: p.currentTime.fromSecondsToDuration(),
-          ),
-        );
-      },
-      onError: eventStreamController.addError,
-    );
+    //FIXME _playerTimeUpdateSubscription = p.onTimeUpdate.listen(
+    //   (_) {
+    //     eventStreamController.add(
+    //       AudioEvent(
+    //         eventType: AudioEventType.position,
+    //         position: p.currentTime.fromSecondsToDuration(),
+    //       ),
+    //     );
+    //   },
+    //   onError: eventStreamController.addError,
+    // );
     _playerSeekedSubscription = p.onSeeked.listen(
       (_) {
         eventStreamController.add(
